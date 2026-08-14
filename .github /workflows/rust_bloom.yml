@@ -1,0 +1,54 @@
+name: Generate Bloom Filter with Rust
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # 1. Dataset Fast Multi-Threaded Download
+      - name: Fast Multi-Threaded Download
+        run: |
+          sudo apt-get update && sudo apt-get install -y aria2
+          aria2c -x 16 -s 16 -k 1M \
+            --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+            -o addresses.txt.gz \
+            "http://alladdresses.loyce.club/all_Bitcoin_addresses_ever_used_sorted.txt.gz"
+
+      # 2. Build Rust Project
+      - name: Build Rust Project
+        run: cargo build --release
+
+      # 3. Run Bloom Filter Generation
+      - name: Run Rust Bloom Filter Builder
+        run: ./target/release/btc_bloom
+
+      # 4. Split File into 1.8GB Chunks (< 2GB Limit)
+      - name: Split File for GitHub Release
+        run: |
+          echo "Splitting 5GB file into 1.8GB chunks..."
+          split -b 1800M btc_addresses_bloom.bin btc_addresses_bloom.bin.part_
+          rm btc_addresses_bloom.bin # Original large file delete karke storage free karein
+          ls -lh btc_addresses_bloom.bin.part_*
+
+      # 5. Create GitHub Release & Upload All Parts
+      - name: Create Release and Upload Parts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: btc_addresses_bloom.bin.part_*
+          tag_name: v1.0.0
+          name: "Bitcoin Addresses Bloom Filter (Split Parts)"
+          body: "High-performance Rust generated Bloom Filter split into <2GB chunks for GitHub Release."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
