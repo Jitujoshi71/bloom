@@ -1,0 +1,10 @@
+[package]
+name = "btc_bloom"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+flate2 = "1.0"
+seahash = "4.1"
+rayon = "1.8"
+crossbeam-channel = "0.5"
